@@ -1,0 +1,5 @@
+{
+  "name": "格柵神算版",
+  "description": "精確計算建築格柵排列，自動對稱攤平誤差，提供專業視覺化標註與間距建議。",
+  "requestFramePermissions": []
+}
