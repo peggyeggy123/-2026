@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Calculator, 
@@ -42,17 +42,29 @@ interface CalculationResult {
 export default function App() {
   // Inputs
   const [totalLength, setTotalLength] = useState<number>(3000);
-  const [sideOffset, setSideOffset] = useState<number>(90);
+  const [sideOffset, setSideOffset] = useState<number>(0);
   const [railWidth, setRailWidth] = useState<number>(40);
-  const [railHeight, setRailHeight] = useState<number>(1000);
+  const [railHeight, setRailHeight] = useState<number>(850);
   const [targetCTC, setTargetCTC] = useState<number>(150);
-  const [upperRailOffset, setUpperRailOffset] = useState<number>(150);
-  const [lowerRailOffset, setLowerRailOffset] = useState<number>(150);
-  const [hRailWidth, setHRailWidth] = useState<number>(80);
+  const [upperRailOffset, setUpperRailOffset] = useState<number>(100);
+  const [lowerRailOffset, setLowerRailOffset] = useState<number>(100);
+  const [hRailWidth, setHRailWidth] = useState<number>(60);
   const [hRailThickness, setHRailThickness] = useState<number>(40);
   const [picketThickness, setPicketThickness] = useState<number>(20);
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Defer heavy values to keep inputs responsive
+  const deferredTotalLength = useDeferredValue(totalLength);
+  const deferredSideOffset = useDeferredValue(sideOffset);
+  const deferredRailWidth = useDeferredValue(railWidth);
+  const deferredRailHeight = useDeferredValue(railHeight);
+  const deferredTargetCTC = useDeferredValue(targetCTC);
+  const deferredUpperRailOffset = useDeferredValue(upperRailOffset);
+  const deferredLowerRailOffset = useDeferredValue(lowerRailOffset);
+  const deferredHRailWidth = useDeferredValue(hRailWidth);
+  const deferredHRailThickness = useDeferredValue(hRailThickness);
+  const deferredPicketThickness = useDeferredValue(picketThickness);
 
   const railingRef = React.useRef<SVGSVGElement>(null);
 
@@ -212,13 +224,6 @@ export default function App() {
                 icon={<Columns2 className="w-4 h-4" />}
               />
               <InputField 
-                label="格柵高度" 
-                value={railHeight} 
-                onChange={setRailHeight} 
-                unit="mm" 
-                icon={<Maximize2 className="w-4 h-4" />}
-              />
-              <InputField 
                 label="目標中心距" 
                 value={targetCTC} 
                 onChange={setTargetCTC} 
@@ -226,14 +231,14 @@ export default function App() {
                 icon={<Ruler className="w-4 h-4" />}
               />
               <InputField 
-                label="單邊預留位" 
+                label="單邊預留位 (預設值0)" 
                 value={sideOffset} 
                 onChange={setSideOffset} 
                 unit="mm" 
                 icon={<ArrowRightLeft className="w-4 h-4" />}
               />
               <InputField 
-                label="上橫樑位置" 
+                label="上橫樑位置 (預設值100)" 
                 value={upperRailOffset} 
                 onChange={setUpperRailOffset} 
                 unit="mm" 
@@ -241,7 +246,7 @@ export default function App() {
                 description="由頂部向下偏移"
               />
               <InputField 
-                label="下橫樑位置" 
+                label="下橫樑位置 (預設值100)" 
                 value={lowerRailOffset} 
                 onChange={setLowerRailOffset} 
                 unit="mm" 
@@ -249,60 +254,20 @@ export default function App() {
                 description="由底部向上偏移"
               />
               <InputField 
-                label="上下橫樑高度" 
+                label="格柵高度 (預設值850)" 
+                value={railHeight} 
+                onChange={setRailHeight} 
+                unit="mm" 
+                icon={<Maximize2 className="w-4 h-4" />}
+              />
+              <InputField 
+                label="上下橫樑高度 (預設值60)" 
                 value={hRailWidth} 
                 onChange={setHRailWidth} 
                 unit="mm" 
                 icon={<Maximize2 className="w-4 h-4" />}
               />
             </div>
-          </section>
-
-          {/* CAD Code Generation Section */}
-          <section className="bg-white border border-[#141414]/10 rounded-2xl p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-2">
-                <Calculator className="w-5 h-5 opacity-70" />
-                <h2 className="text-lg font-bold uppercase tracking-widest leading-tight">
-                  程式碼生成<br/>
-                  (正視圖)
-                </h2>
-              </div>
-              <button 
-                onClick={() => {
-                  const script = generateCADScript(totalLength, sideOffset, result.count, result.actualCTC, railWidth, railHeight, upperRailOffset, lowerRailOffset, hRailWidth);
-                  copyToClipboard(script, "正視圖程式碼", "front");
-                }}
-                className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 bg-[#141414] text-white px-4 py-2 rounded-lg hover:bg-[#141414]/90 transition-colors active:scale-95"
-              >
-                {copiedId === "front" ? <Check className="w-4 h-4 text-green-400" /> : <Download className="w-4 h-4" />}
-                {copiedId === "front" ? "已複製" : "複製程式碼"}
-              </button>
-            </div>
-            
-            <div className="bg-[#F9F9F7] rounded-xl p-6 border border-[#141414]/10 mb-6">
-              <p className="text-base text-[#141414]/80 mb-4 leading-relaxed">
-                將下方 AutoLISP 程式碼複製，並貼上到 AutoCAD 的指令行中。這會自動繪製所有格柵。
-              </p>
-              <textarea 
-                readOnly
-                onFocus={(e) => e.target.select()}
-                className="w-full text-sm font-mono bg-white p-4 rounded-lg border border-[#141414]/10 overflow-x-auto h-64 whitespace-pre resize-none focus:outline-none focus:ring-2 focus:ring-[#141414]/5"
-                value={generateCADScript(totalLength, sideOffset, result.count, result.actualCTC, railWidth, railHeight, upperRailOffset, lowerRailOffset, hRailWidth)}
-              />
-            </div>
-
-            <button 
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className={`w-full text-xs font-bold uppercase tracking-[0.15em] px-6 py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg ${
-                showAdvanced 
-                  ? 'bg-[#141414] text-white hover:bg-[#141414]/90' 
-                  : 'bg-amber-500 text-[#141414] hover:bg-amber-400 shadow-amber-500/20'
-              }`}
-            >
-              {showAdvanced ? '隱藏進階選項' : '延伸看更多 (進階視圖)'}
-              <ChevronRight className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} />
-            </button>
           </section>
         </div>
 
@@ -326,9 +291,9 @@ export default function App() {
             <div className="flex items-center justify-center min-h-[200px] bg-[#F9F9F7] rounded-xl border border-dashed border-[#141414]/10 p-2 overflow-x-auto">
               <RailingVisualizer 
                 ref={railingRef}
-                totalLength={totalLength}
-                sideOffset={sideOffset}
-                railWidth={railWidth}
+                totalLength={deferredTotalLength}
+                sideOffset={deferredSideOffset}
+                railWidth={deferredRailWidth}
                 count={result.count}
                 actualCTC={result.actualCTC}
                 actualGap={result.actualGap}
@@ -354,19 +319,19 @@ export default function App() {
             </div>
             <div className="flex-1 min-h-0">
               <FenceModelViewer 
-                totalLength={totalLength}
-                postSize={sideOffset}
-                lowerRailHeight={lowerRailOffset}
-                upperRailTopOffset={upperRailOffset}
-                picketWidth={railWidth}
-                picketThickness={20}
-                picketHeight={railHeight}
+                totalLength={deferredTotalLength}
+                postSize={deferredSideOffset}
+                lowerRailHeight={deferredLowerRailOffset}
+                upperRailTopOffset={deferredUpperRailOffset}
+                picketWidth={deferredRailWidth}
+                picketThickness={deferredPicketThickness}
+                picketHeight={deferredRailHeight}
                 picketGroundClearance={0}
                 picketSpacing={result.actualGap}
                 mode="calculator"
                 count={result.count}
-                hRailWidth={hRailWidth}
-                hRailThickness={hRailThickness}
+                hRailWidth={deferredHRailWidth}
+                hRailThickness={deferredHRailThickness}
               />
             </div>
           </section>
@@ -417,6 +382,53 @@ export default function App() {
             )}
           </section>
 
+          {/* CAD Code Generation Section */}
+          <section className="bg-white border border-[#141414]/10 rounded-2xl p-8 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-2">
+                <Calculator className="w-5 h-5 opacity-70" />
+                <h2 className="text-lg font-bold uppercase tracking-widest leading-tight">
+                  程式碼生成<br/>
+                  (正視圖)
+                </h2>
+              </div>
+              <button 
+                onClick={() => {
+                  const script = generateCADScript(totalLength, sideOffset, result.count, result.actualCTC, railWidth, railHeight, upperRailOffset, lowerRailOffset, hRailWidth);
+                  copyToClipboard(script, "正視圖程式碼", "front");
+                }}
+                className="text-sm font-bold uppercase tracking-widest flex items-center gap-2 bg-[#141414] text-white px-5 py-2.5 rounded-lg hover:bg-[#141414]/90 hover:border-orange-400 transition-all active:scale-95 shadow-md border-[3px] border-orange-500 hover:shadow-orange-500/20"
+              >
+                {copiedId === "front" ? <Check className="w-5 h-5 text-green-400" /> : <Download className="w-5 h-5" />}
+                {copiedId === "front" ? "已複製" : "複製程式碼"}
+              </button>
+            </div>
+            
+            <div className="bg-[#F9F9F7] rounded-xl p-6 border border-[#141414]/10 mb-6">
+              <p className="text-base text-[#141414]/80 mb-4 leading-relaxed">
+                將下方 AutoLISP 程式碼複製，並貼上到 AutoCAD 的指令行中。這會自動繪製所有格柵。
+              </p>
+              <textarea 
+                readOnly
+                onFocus={(e) => e.target.select()}
+                className="w-full text-sm font-mono bg-white p-4 rounded-lg border border-[#141414]/10 overflow-x-auto h-64 whitespace-pre resize-none focus:outline-none focus:ring-2 focus:ring-[#141414]/5"
+                value={generateCADScript(totalLength, sideOffset, result.count, result.actualCTC, railWidth, railHeight, upperRailOffset, lowerRailOffset, hRailWidth)}
+              />
+            </div>
+
+            <button 
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className={`w-full text-sm font-black uppercase tracking-[0.2em] px-6 py-5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl ${
+                showAdvanced 
+                  ? 'bg-[#141414] text-white hover:bg-[#141414]/90' 
+                  : 'bg-amber-500 text-[#141414] hover:bg-amber-400 shadow-amber-500/30'
+              }`}
+            >
+              {showAdvanced ? '隱藏進階選項' : '延伸看更多 (進階視圖)'}
+              <ChevronRight className={`w-5 h-5 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} />
+            </button>
+          </section>
+
           {/* Advanced View Section */}
           <AnimatePresence>
             {showAdvanced && (
@@ -436,7 +448,7 @@ export default function App() {
                       </h2>
                     </div>
                     <div className="hidden md:block">
-                      <span className="px-4 py-1.5 bg-[#141414] text-white text-[10px] font-bold uppercase tracking-[0.2em] rounded-full">
+                      <span className="px-5 py-2 bg-[#141414] text-white text-xs font-black uppercase tracking-[0.25em] rounded-full shadow-md">
                         進階視圖模式
                       </span>
                     </div>
@@ -479,13 +491,13 @@ export default function App() {
                         </h3>
                         <div className="flex gap-2">
                           <button 
+                            className="bg-[#141414] text-white text-xs font-bold uppercase px-4 py-2 rounded-md hover:bg-[#141414]/80 hover:border-orange-400 transition-all active:scale-95 flex items-center gap-2 min-w-[110px] justify-center shadow-sm border-[3px] border-orange-500 hover:shadow-orange-500/20"
                             onClick={() => {
                               const script = generateTopViewScript(totalLength, sideOffset, result.count, result.actualCTC, railWidth, picketThickness, hRailThickness);
                               copyToClipboard(script, "上視圖程式碼", "top");
                             }}
-                            className="bg-[#141414] text-white text-[10px] font-bold uppercase px-3 py-1.5 rounded-md hover:bg-[#141414]/80 transition-colors active:scale-95 flex items-center gap-1.5 min-w-[90px] justify-center"
                           >
-                            {copiedId === "top" ? <Check className="w-3 h-3 text-green-400" /> : null}
+                            {copiedId === "top" ? <Check className="w-4 h-4 text-green-400" /> : <Download className="w-4 h-4" />}
                             {copiedId === "top" ? "已複製" : "複製程式碼"}
                           </button>
                         </div>
@@ -507,13 +519,13 @@ export default function App() {
                         </h3>
                         <div className="flex gap-2">
                           <button 
+                            className="bg-[#141414] text-white text-xs font-bold uppercase px-4 py-2 rounded-md hover:bg-[#141414]/80 hover:border-orange-400 transition-all active:scale-95 flex items-center gap-2 min-w-[110px] justify-center shadow-sm border-[3px] border-orange-500 hover:shadow-orange-500/20"
                             onClick={() => {
                               const script = generateSideViewScript(railHeight, upperRailOffset, lowerRailOffset, hRailWidth, picketThickness, hRailThickness);
                               copyToClipboard(script, "側視圖程式碼", "side");
                             }}
-                            className="bg-[#141414] text-white text-[10px] font-bold uppercase px-3 py-1.5 rounded-md hover:bg-[#141414]/80 transition-colors active:scale-95 flex items-center gap-1.5 min-w-[90px] justify-center"
                           >
-                            {copiedId === "side" ? <Check className="w-3 h-3 text-green-400" /> : null}
+                            {copiedId === "side" ? <Check className="w-4 h-4 text-green-400" /> : <Download className="w-4 h-4" />}
                             {copiedId === "side" ? "已複製" : "複製程式碼"}
                           </button>
                         </div>
@@ -545,7 +557,7 @@ export default function App() {
 
 // --- Sub-components ---
 
-function InputField({ label, value, onChange, unit, icon, description }: { 
+const InputField = React.memo(function InputField({ label, value, onChange, unit, icon, description }: { 
   label: string, 
   value: number, 
   onChange: (v: number) => void, 
@@ -553,16 +565,24 @@ function InputField({ label, value, onChange, unit, icon, description }: {
   icon: React.ReactNode,
   description?: string
 }) {
+  const [localValue, setLocalValue] = useState<string>(value.toString());
   const labelParts = label.split(/(\(.*\))/);
+
+  // Sync local value with prop value when it changes externally
+  useEffect(() => {
+    if (Number(localValue) !== value) {
+      setLocalValue(value.toString());
+    }
+  }, [value]);
   
   return (
     <div className="group">
-      <label className="text-base font-bold uppercase tracking-widest opacity-70 mb-2 block flex items-center gap-2 group-focus-within:opacity-100 transition-opacity">
+      <label className="text-base font-bold uppercase tracking-widest opacity-90 mb-2 block flex items-center gap-2 group-focus-within:opacity-100 transition-opacity">
         {icon}
         <span className="flex items-baseline gap-1.5">
           {labelParts.map((part, i) => 
             part.startsWith('(') && part.endsWith(')') 
-              ? <span key={i} className="text-[10px] font-normal opacity-60 tracking-normal">{part}</span>
+              ? <span key={i} className="text-[11px] font-bold opacity-100 text-amber-700 tracking-normal">{part}</span>
               : part
           )}
         </span>
@@ -570,8 +590,22 @@ function InputField({ label, value, onChange, unit, icon, description }: {
       <div className="relative">
         <input 
           type="number" 
-          value={value} 
-          onChange={(e) => onChange(Number(e.target.value))}
+          value={localValue} 
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => {
+            const val = e.target.value;
+            setLocalValue(val);
+            if (val !== "") {
+              onChange(Number(val));
+            }
+          }}
+          onBlur={() => {
+            // If empty on blur, reset to 0 or current value
+            if (localValue === "") {
+              setLocalValue("0");
+              onChange(0);
+            }
+          }}
           className="w-full bg-[#F9F9F7] border border-[#141414]/10 rounded-xl px-4 py-3 text-xl font-mono focus:outline-none focus:ring-2 focus:ring-[#141414]/10 focus:border-[#141414] transition-all"
         />
         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-base font-bold opacity-50 uppercase">{unit}</span>
@@ -583,9 +617,9 @@ function InputField({ label, value, onChange, unit, icon, description }: {
       )}
     </div>
   );
-}
+});
 
-function StatItem({ label, value, unit, highlight = false }: { label: string, value: string | number, unit: string, highlight?: boolean }) {
+const StatItem = React.memo(function StatItem({ label, value, unit, highlight = false }: { label: string, value: string | number, unit: string, highlight?: boolean }) {
   return (
     <div className="flex justify-between items-end">
       <span className="text-base font-bold uppercase tracking-widest opacity-70">{label}</span>
@@ -595,18 +629,18 @@ function StatItem({ label, value, unit, highlight = false }: { label: string, va
       </div>
     </div>
   );
-}
+});
 
-function LegendItem({ color, label }: { color: string, label: string }) {
+const LegendItem = React.memo(function LegendItem({ color, label }: { color: string, label: string }) {
   return (
     <div className="flex items-center gap-2">
       <div className={`w-5 h-5 rounded-full ${color}`} />
       <span className="text-base font-bold uppercase tracking-widest opacity-70">{label}</span>
     </div>
   );
-}
+});
 
-function RailingVisualizer({ 
+const RailingVisualizer = React.memo(function RailingVisualizer({ 
   totalLength, 
   sideOffset, 
   railWidth, 
@@ -628,7 +662,9 @@ function RailingVisualizer({
   const svgWidth = 800;
   const svgHeight = 160;
   const viewWidth = svgWidth - 2 * padding;
-  const scale = viewWidth / totalLength;
+  // Guard against division by zero or negative values
+  const safeTotalLength = Math.max(1, totalLength);
+  const scale = viewWidth / safeTotalLength;
 
   const h = 40;  // Rail height
   const y = 50;  // Rail y pos
@@ -879,7 +915,7 @@ function RailingVisualizer({
       </defs>
     </svg>
   );
-}
+});
 
 /**
  * Generates an AutoLISP block to draw only the vertical pickets (rails).
