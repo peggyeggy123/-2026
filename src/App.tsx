@@ -31,6 +31,7 @@ interface CalculationResult {
   count: number;
   actualCTC: number;
   actualGap: number;
+  actualSideOffset: number;
   effectiveLength: number;
   totalWidthOfRails: number;
   totalWidthOfGaps: number;
@@ -145,31 +146,36 @@ export default function App() {
     const W = railWidth;
     const T = targetCTC;
 
-    if (L_eff <= W) {
-      return { count: 1, actualCTC: 0, actualGap: 0, effectiveLength: L_eff, totalWidthOfRails: W, totalWidthOfGaps: 0 };
+    if (L_eff <= W || T <= 0) {
+      return { count: 1, actualCTC: T, actualGap: 0, actualSideOffset: (totalLength - W) / 2, effectiveLength: L_eff, totalWidthOfRails: W, totalWidthOfGaps: 0 };
     }
 
-    let k_minus_1 = Math.round((L_eff - W) / T);
-    if (k_minus_1 < 1) k_minus_1 = 1;
-    
-    const k = k_minus_1 + 1;
-    const actualCTC = (L_eff - W) / k_minus_1;
+    // Fix CTC to the target value
+    const actualCTC = T;
     const actualGap = actualCTC - W;
+    
+    // Calculate how many fit
+    const k_minus_1 = Math.floor((L_eff - W) / actualCTC);
+    const k = Math.max(1, k_minus_1 + 1);
+    
+    // Calculate the actual side offset to center the pickets
+    const actualSideOffset = (totalLength - ((k - 1) * actualCTC + W)) / 2;
 
     let recommendation = "";
     if (actualGap < 50) {
-      recommendation = "內部間距過窄（小於 50mm），建議減少支數。";
+      recommendation = "內部間距過窄（小於 50mm），建議增加中心距。";
     } else if (actualGap > 200) {
-      recommendation = "內部間距過寬（大於 200mm），建議增加支數。";
+      recommendation = "內部間距過寬（大於 200mm），建議減少中心距。";
     }
 
     return {
       count: k,
       actualCTC,
       actualGap,
+      actualSideOffset,
       effectiveLength: L_eff,
       totalWidthOfRails: k * W,
-      totalWidthOfGaps: k_minus_1 * actualGap,
+      totalWidthOfGaps: (k - 1) * actualGap,
       recommendation
     };
   }, [totalLength, sideOffset, railWidth, targetCTC]);
@@ -224,14 +230,14 @@ export default function App() {
                 icon={<Columns2 className="w-4 h-4" />}
               />
               <InputField 
-                label="目標中心距" 
+                label="實際中心距" 
                 value={targetCTC} 
                 onChange={setTargetCTC} 
                 unit="mm" 
                 icon={<Ruler className="w-4 h-4" />}
               />
               <InputField 
-                label="單邊預留位 (預設值0)" 
+                label="最小單邊預留位 (預設值0)" 
                 value={sideOffset} 
                 onChange={setSideOffset} 
                 unit="mm" 
@@ -292,7 +298,7 @@ export default function App() {
               <RailingVisualizer 
                 ref={railingRef}
                 totalLength={deferredTotalLength}
-                sideOffset={deferredSideOffset}
+                sideOffset={result.actualSideOffset}
                 railWidth={deferredRailWidth}
                 count={result.count}
                 actualCTC={result.actualCTC}
@@ -320,7 +326,7 @@ export default function App() {
             <div className="flex-1 min-h-0">
               <FenceModelViewer 
                 totalLength={deferredTotalLength}
-                postSize={deferredSideOffset}
+                postSize={result.actualSideOffset}
                 lowerRailHeight={deferredLowerRailOffset}
                 upperRailTopOffset={deferredUpperRailOffset}
                 picketWidth={deferredRailWidth}
@@ -350,11 +356,14 @@ export default function App() {
                 <div className="p-4 bg-white/10 rounded-xl space-y-2">
                   <p className="text-base text-white/60 uppercase tracking-wider">算式推導</p>
                   <p className="text-lg font-mono text-white/90">
-                    (有效長度 - 格柵寬) ÷ 目標中心距<br/>
-                    ({result.effectiveLength} - {railWidth}) ÷ {targetCTC} = {((result.effectiveLength - railWidth) / targetCTC).toFixed(1)}
+                    (有效長度 - 格柵寬) ÷ 實際中心距<br/>
+                    ({result.effectiveLength} - {railWidth}) ÷ {result.actualCTC} = {((result.effectiveLength - railWidth) / result.actualCTC).toFixed(1)}
                   </p>
                   <p className="text-base text-white/60 italic">
-                    取最接近整數為內部間距數：{result.count - 1}
+                    向下取整為內部間距數：{result.count - 1}
+                  </p>
+                  <p className="text-base text-white/60 italic">
+                    實際單邊預留位：{result.actualSideOffset.toFixed(1)}mm
                   </p>
                 </div>
               </div>
@@ -394,7 +403,7 @@ export default function App() {
               </div>
               <button 
                 onClick={() => {
-                  const script = generateCADScript(totalLength, sideOffset, result.count, result.actualCTC, railWidth, railHeight, upperRailOffset, lowerRailOffset, hRailWidth);
+                  const script = generateCADScript(totalLength, result.actualSideOffset, result.count, result.actualCTC, railWidth, railHeight, upperRailOffset, lowerRailOffset, hRailWidth);
                   copyToClipboard(script, "正視圖程式碼", "front");
                 }}
                 className="text-sm font-bold uppercase tracking-widest flex items-center gap-2 bg-[#141414] text-white px-5 py-2.5 rounded-lg hover:bg-[#141414]/90 hover:border-orange-400 transition-all active:scale-95 shadow-md border-[3px] border-orange-500 hover:shadow-orange-500/20"
@@ -412,7 +421,7 @@ export default function App() {
                 readOnly
                 onFocus={(e) => e.target.select()}
                 className="w-full text-sm font-mono bg-white p-4 rounded-lg border border-[#141414]/10 overflow-x-auto h-64 whitespace-pre resize-none focus:outline-none focus:ring-2 focus:ring-[#141414]/5"
-                value={generateCADScript(totalLength, sideOffset, result.count, result.actualCTC, railWidth, railHeight, upperRailOffset, lowerRailOffset, hRailWidth)}
+                value={generateCADScript(totalLength, result.actualSideOffset, result.count, result.actualCTC, railWidth, railHeight, upperRailOffset, lowerRailOffset, hRailWidth)}
               />
             </div>
 
@@ -493,7 +502,7 @@ export default function App() {
                           <button 
                             className="bg-[#141414] text-white text-xs font-bold uppercase px-4 py-2 rounded-md hover:bg-[#141414]/80 hover:border-orange-400 transition-all active:scale-95 flex items-center gap-2 min-w-[110px] justify-center shadow-sm border-[3px] border-orange-500 hover:shadow-orange-500/20"
                             onClick={() => {
-                              const script = generateTopViewScript(totalLength, sideOffset, result.count, result.actualCTC, railWidth, picketThickness, hRailThickness);
+                              const script = generateTopViewScript(totalLength, result.actualSideOffset, result.count, result.actualCTC, railWidth, picketThickness, hRailThickness);
                               copyToClipboard(script, "上視圖程式碼", "top");
                             }}
                           >
@@ -506,7 +515,7 @@ export default function App() {
                         readOnly
                         onFocus={(e) => e.target.select()}
                         className="w-full text-xs font-mono bg-white p-3 rounded-lg border border-[#141414]/10 overflow-x-auto h-24 whitespace-pre resize-none focus:outline-none focus:ring-2 focus:ring-[#141414]/5"
-                        value={generateTopViewScript(totalLength, sideOffset, result.count, result.actualCTC, railWidth, picketThickness, hRailThickness)}
+                        value={generateTopViewScript(totalLength, result.actualSideOffset, result.count, result.actualCTC, railWidth, picketThickness, hRailThickness)}
                       />
                     </div>
 
