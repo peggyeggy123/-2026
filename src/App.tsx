@@ -20,12 +20,17 @@ import {
   Layout,
   ChevronRight,
   ChevronDown,
-  Check
+  Check,
+  Share2,
+  FileText,
+  Link
 } from 'lucide-react';
 import FenceModelViewer from './components/FenceModel';
 import { Toaster, toast } from 'sonner';
 
 // --- Types ---
+
+const formatNum = (val: number) => Number(val.toFixed(1));
 
 interface CalculationResult {
   count: number;
@@ -54,6 +59,83 @@ export default function App() {
   const [picketThickness, setPicketThickness] = useState<number>(20);
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // --- URL Sync ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const l = params.get('l');
+    const s = params.get('s');
+    const w = params.get('w');
+    const c = params.get('c');
+    const h = params.get('h');
+    const uo = params.get('uo');
+    const lo = params.get('lo');
+    const pt = params.get('pt');
+    const ht = params.get('ht');
+    const hw = params.get('hw');
+
+    if (l) setTotalLength(Number(l));
+    if (s) setSideOffset(Number(s));
+    if (w) setRailWidth(Number(w));
+    if (c) setTargetCTC(Number(c));
+    if (h) setRailHeight(Number(h));
+    if (uo) setUpperRailOffset(Number(uo));
+    if (lo) setLowerRailOffset(Number(lo));
+    if (pt) setPicketThickness(Number(pt));
+    if (ht) setHRailThickness(Number(ht));
+    if (hw) setHRailWidth(Number(hw));
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set('l', totalLength.toString());
+    params.set('s', sideOffset.toString());
+    params.set('w', railWidth.toString());
+    params.set('c', targetCTC.toString());
+    params.set('h', railHeight.toString());
+    params.set('uo', upperRailOffset.toString());
+    params.set('lo', lowerRailOffset.toString());
+    params.set('pt', picketThickness.toString());
+    params.set('ht', hRailThickness.toString());
+    params.set('hw', hRailWidth.toString());
+    
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', newUrl);
+  }, [totalLength, sideOffset, railWidth, targetCTC, railHeight, upperRailOffset, lowerRailOffset, picketThickness, hRailThickness, hRailWidth]);
+
+  // --- Actions ---
+  const copyShareLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedId('share');
+    toast.success("分享連結已複製！");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const copySummary = () => {
+    const summary = `格柵計算報告
+---------------------------
+總長度: ${formatNum(totalLength)} mm
+格柵寬度: ${formatNum(railWidth)} mm
+實際中心距: ${formatNum(result.actualCTC)} mm
+單邊預留位 (輸入): ${formatNum(sideOffset)} mm
+實際單邊預留位: ${formatNum(result.actualSideOffset)} mm
+格柵支數: ${result.count} 支
+內部間距: ${formatNum(result.actualGap)} mm
+格柵高度: ${formatNum(railHeight)} mm
+---------------------------
+算式推導:
+(有效長度 - 格柵寬) ÷ 實際中心距
+(${formatNum(result.effectiveLength)} - ${formatNum(railWidth)}) ÷ ${formatNum(result.actualCTC)} = ${formatNum((result.effectiveLength - railWidth) / result.actualCTC)}
+內部間距數: ${result.count - 1}
+---------------------------
+生成時間: ${new Date().toLocaleString()}
+分享連結: ${window.location.href}
+`;
+    navigator.clipboard.writeText(summary);
+    setCopiedId('copy-report');
+    toast.success("報告內容已複製！");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Defer heavy values to keep inputs responsive
   const deferredTotalLength = useDeferredValue(totalLength);
@@ -181,13 +263,13 @@ export default function App() {
   }, [totalLength, sideOffset, railWidth, targetCTC]);
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans selection:bg-[#141414] selection:text-[#F5F5F0]">
+    <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans selection:bg-[#141414] selection:text-[#F5F5F0] print:bg-white">
       <Toaster position="top-center" richColors />
       {/* Header */}
-      <header className="border-b border-[#141414]/10 bg-white/50 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-[#141414]/10 bg-white/50 backdrop-blur-md sticky top-0 z-50 print:static print:bg-white print:border-none">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#141414] rounded-sm flex items-center justify-center">
+            <div className="w-8 h-8 bg-[#141414] rounded-sm flex items-center justify-center print:hidden">
               <Calculator className="text-white w-5 h-5" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight uppercase italic font-serif">
@@ -195,19 +277,20 @@ export default function App() {
             </h1>
           </div>
           <div className="flex items-center gap-6">
-            <div className="hidden md:flex items-center gap-4 text-xs font-mono opacity-50">
+            <div className="hidden md:flex items-center gap-4 text-xs font-mono opacity-50 print:opacity-100 print:flex">
               <span>精度: 0.1mm</span>
-              <div className="w-1 h-1 bg-[#141414] rounded-full" />
+              <div className="w-1 h-1 bg-[#141414] rounded-full print:hidden" />
               <span>對稱性: 完美</span>
+              <span className="hidden print:block">列印時間: {new Date().toLocaleString()}</span>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-12 gap-12">
+      <main className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-12 gap-12 print:block print:py-0">
         
         {/* Left Column: Controls */}
-        <div className="lg:col-span-4 space-y-8">
+        <div className="lg:col-span-4 space-y-8 print:hidden">
           <section className="bg-white border border-[#141414]/10 rounded-2xl p-8 shadow-sm">
             <div className="flex items-center gap-2 mb-8">
               <Settings2 className="w-5 h-5 opacity-70" />
@@ -237,7 +320,7 @@ export default function App() {
                 icon={<Ruler className="w-4 h-4" />}
               />
               <InputField 
-                label="最小單邊預留位 (預設值0)" 
+                label="單邊預留位 (預設值0)" 
                 value={sideOffset} 
                 onChange={setSideOffset} 
                 unit="mm" 
@@ -278,7 +361,7 @@ export default function App() {
         </div>
 
         {/* Right Column: Visualization */}
-        <div className="lg:col-span-8 space-y-8 flex flex-col">
+        <div className="lg:col-span-8 space-y-8 flex flex-col print:w-full print:block">
           <section className="bg-white border border-[#141414]/10 rounded-2xl p-6 shadow-sm flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -315,7 +398,7 @@ export default function App() {
           </section>
 
           {/* 3D Preview Section */}
-          <section className="bg-white border border-[#141414]/10 rounded-2xl p-6 shadow-sm flex flex-col h-[400px]">
+          <section className="bg-white border border-[#141414]/10 rounded-2xl p-6 shadow-sm flex flex-col h-[400px] print:hidden">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Box className="w-5 h-5 opacity-50" />
@@ -343,9 +426,9 @@ export default function App() {
           </section>
 
           {/* Stats Summary */}
-          <section className="bg-[#141414] text-white rounded-2xl p-8 shadow-xl">
+          <section className="bg-[#141414] text-white rounded-2xl p-8 shadow-xl print:bg-white print:text-black print:border print:border-black/10 print:shadow-none">
             <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-2 opacity-70">
+              <div className="flex items-center gap-2 opacity-70 print:opacity-100">
                 <Info className="w-5 h-5" />
                 <h2 className="text-lg font-bold uppercase tracking-widest">計算詳解</h2>
               </div>
@@ -353,17 +436,17 @@ export default function App() {
 
             <div className="space-y-6">
               <div className="grid grid-cols-1 gap-4">
-                <div className="p-4 bg-white/10 rounded-xl space-y-2">
-                  <p className="text-base text-white/60 uppercase tracking-wider">算式推導</p>
-                  <p className="text-lg font-mono text-white/90">
+                <div className="p-4 bg-white/10 rounded-xl space-y-2 print:bg-black/5 print:border print:border-black/10">
+                  <p className="text-base text-white/60 uppercase tracking-wider print:text-black/60">算式推導</p>
+                  <p className="text-lg font-mono text-white/90 print:text-black">
                     (有效長度 - 格柵寬) ÷ 實際中心距<br/>
-                    ({result.effectiveLength} - {railWidth}) ÷ {result.actualCTC} = {((result.effectiveLength - railWidth) / result.actualCTC).toFixed(1)}
+                    ({result.effectiveLength} - {railWidth}) ÷ {result.actualCTC} = {formatNum((result.effectiveLength - railWidth) / result.actualCTC)}
                   </p>
-                  <p className="text-base text-white/60 italic">
+                  <p className="text-base text-white/60 italic print:text-black/60">
                     向下取整為內部間距數：{result.count - 1}
                   </p>
-                  <p className="text-base text-white/60 italic">
-                    實際單邊預留位：{result.actualSideOffset.toFixed(1)}mm
+                  <p className="text-base text-white/60 italic print:text-black/60">
+                    實際單邊預留位：{formatNum(result.actualSideOffset)}mm
                   </p>
                 </div>
               </div>
@@ -372,8 +455,8 @@ export default function App() {
 
               <div className="grid grid-cols-1 gap-6">
                 <StatItem label="最終支數" value={result.count} unit="支" highlight />
-                <StatItem label="實際中心距" value={result.actualCTC.toFixed(1)} unit="mm" />
-                <StatItem label="實際淨間距" value={result.actualGap.toFixed(1)} unit="mm" />
+                <StatItem label="實際中心距" value={formatNum(result.actualCTC)} unit="mm" />
+                <StatItem label="實際淨間距" value={formatNum(result.actualGap)} unit="mm" />
               </div>
             </div>
 
@@ -392,7 +475,7 @@ export default function App() {
           </section>
 
           {/* CAD Code Generation Section */}
-          <section className="bg-white border border-[#141414]/10 rounded-2xl p-8 shadow-sm">
+          <section className="bg-white border border-[#141414]/10 rounded-2xl p-8 shadow-sm print:hidden">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-2">
                 <Calculator className="w-5 h-5 opacity-70" />
@@ -436,6 +519,35 @@ export default function App() {
               {showAdvanced ? '隱藏進階選項' : '延伸看更多 (進階視圖)'}
               <ChevronRight className={`w-5 h-5 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} />
             </button>
+          </section>
+
+          {/* Share & Export Section */}
+          <section className="bg-white border border-[#141414]/10 rounded-2xl p-8 shadow-sm print:hidden">
+            <div className="flex items-center gap-2 mb-8">
+              <Share2 className="w-5 h-5 opacity-70" />
+              <h2 className="text-lg font-bold uppercase tracking-widest">分享與紀錄</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button 
+                onClick={copyShareLink}
+                className="flex items-center justify-center gap-3 p-4 bg-[#F9F9F7] border border-[#141414]/10 rounded-xl hover:bg-white hover:border-[#141414] transition-all group"
+              >
+                {copiedId === 'share' ? <Check className="w-5 h-5 text-green-600" /> : <Link className="w-5 h-5 opacity-50 group-hover:opacity-100" />}
+                <span className="font-bold uppercase tracking-widest text-sm">複製分享連結</span>
+              </button>
+
+              <button 
+                onClick={copySummary}
+                className="flex items-center justify-center gap-3 p-4 bg-[#F9F9F7] border border-[#141414]/10 rounded-xl hover:bg-white hover:border-[#141414] transition-all group"
+              >
+                {copiedId === 'copy-report' ? <Check className="w-5 h-5 text-green-600" /> : <FileText className="w-5 h-5 opacity-50 group-hover:opacity-100" />}
+                <span className="font-bold uppercase tracking-widest text-sm">複製文字報告</span>
+              </button>
+            </div>
+            <p className="mt-4 text-xs opacity-40 uppercase tracking-widest text-center">
+              分享連結將包含您目前設定的所有數值
+            </p>
           </section>
 
           {/* Advanced View Section */}
@@ -630,11 +742,11 @@ const InputField = React.memo(function InputField({ label, value, onChange, unit
 
 const StatItem = React.memo(function StatItem({ label, value, unit, highlight = false }: { label: string, value: string | number, unit: string, highlight?: boolean }) {
   return (
-    <div className="flex justify-between items-end">
-      <span className="text-base font-bold uppercase tracking-widest opacity-70">{label}</span>
+    <div className="flex justify-between items-end print:border-b print:border-black/10 print:pb-2">
+      <span className="text-base font-bold uppercase tracking-widest opacity-70 print:opacity-100 print:text-black">{label}</span>
       <div className="flex items-baseline gap-1">
-        <span className={`font-serif italic ${highlight ? 'text-5xl text-white' : 'text-3xl text-white'}`}>{value}</span>
-        <span className="text-base font-bold uppercase opacity-50">{unit}</span>
+        <span className={`font-serif italic ${highlight ? 'text-5xl text-white print:text-black' : 'text-3xl text-white print:text-black'}`}>{value}</span>
+        <span className="text-base font-bold uppercase opacity-50 print:opacity-100 print:text-black">{unit}</span>
       </div>
     </div>
   );
@@ -643,8 +755,8 @@ const StatItem = React.memo(function StatItem({ label, value, unit, highlight = 
 const LegendItem = React.memo(function LegendItem({ color, label }: { color: string, label: string }) {
   return (
     <div className="flex items-center gap-2">
-      <div className={`w-5 h-5 rounded-full ${color}`} />
-      <span className="text-base font-bold uppercase tracking-widest opacity-70">{label}</span>
+      <div className={`w-5 h-5 rounded-full ${color} print:border print:border-black/20`} />
+      <span className="text-base font-bold uppercase tracking-widest opacity-70 print:opacity-100 print:text-black">{label}</span>
     </div>
   );
 });
@@ -691,7 +803,7 @@ const RailingVisualizer = React.memo(function RailingVisualizer({
       width={svgWidth} 
       height={svgHeight} 
       viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
-      className="w-full h-auto drop-shadow-sm bg-white"
+      className="w-full h-auto drop-shadow-sm bg-white print:bg-white"
       xmlns="http://www.w3.org/2000/svg"
     >
       {/* Background Line */}
@@ -786,7 +898,7 @@ const RailingVisualizer = React.memo(function RailingVisualizer({
             strokeLinejoin="round"
             style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: 'bold', opacity: 0.5 }}
           >
-            {sideOffset * scale > 40 ? `預留 ${sideOffset}` : sideOffset}
+            {sideOffset * scale > 40 ? `預留 ${formatNum(sideOffset)}` : formatNum(sideOffset)}
           </text>
           <text 
             x={padding + (sideOffset * scale) / 2} 
@@ -794,7 +906,7 @@ const RailingVisualizer = React.memo(function RailingVisualizer({
             textAnchor="middle" 
             style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#3b82f6' }}
           >
-            {sideOffset * scale > 40 ? `預留 ${sideOffset}` : sideOffset}
+            {sideOffset * scale > 40 ? `預留 ${formatNum(sideOffset)}` : formatNum(sideOffset)}
           </text>
         </g>
       )}
@@ -836,7 +948,7 @@ const RailingVisualizer = React.memo(function RailingVisualizer({
             strokeLinejoin="round"
             style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: 'bold', opacity: 0.5 }}
           >
-            {sideOffset * scale > 40 ? `預留 ${sideOffset}` : sideOffset}
+            {sideOffset * scale > 40 ? `預留 ${formatNum(sideOffset)}` : formatNum(sideOffset)}
           </text>
           <text 
             x={padding + (totalLength - sideOffset / 2) * scale} 
@@ -844,7 +956,7 @@ const RailingVisualizer = React.memo(function RailingVisualizer({
             textAnchor="middle" 
             style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#3b82f6' }}
           >
-            {sideOffset * scale > 40 ? `預留 ${sideOffset}` : sideOffset}
+            {sideOffset * scale > 40 ? `預留 ${formatNum(sideOffset)}` : formatNum(sideOffset)}
           </text>
         </g>
       )}
@@ -880,7 +992,7 @@ const RailingVisualizer = React.memo(function RailingVisualizer({
                   textAnchor="middle" 
                   style={{ fontSize: '13px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#141414' }}
                 >
-                  實際中心距: {actualCTC.toFixed(1)}
+                  實際中心距: {formatNum(actualCTC)}
                 </text>
              </g>
           )}
@@ -899,7 +1011,7 @@ const RailingVisualizer = React.memo(function RailingVisualizer({
                 textAnchor="middle" 
                 style={{ fontSize: '13px', fontFamily: 'monospace', fontWeight: 'bold', fill: '#f59e0b' }}
               >
-                {actualGap.toFixed(1)}
+                {formatNum(actualGap)}
               </text>
             </g>
           )}

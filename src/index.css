@@ -12,3 +12,34 @@
   --color-surface: #f8fafc;
   --color-ink: #0f172a;
 }
+
+@layer utilities {
+  @media print {
+    .print\:hidden {
+      display: none !important;
+    }
+    
+    body {
+      background: white !important;
+      color: black !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    .print\:break-inside-avoid {
+      break-inside: avoid;
+    }
+
+    /* Force background colors for print if needed */
+    .print\:bg-white {
+      background-color: white !important;
+      -webkit-print-color-adjust: exact;
+    }
+
+    /* Ensure SVG renders well */
+    svg {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+  }
+}

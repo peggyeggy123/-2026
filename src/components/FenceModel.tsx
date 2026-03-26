@@ -156,9 +156,25 @@ export default function FenceModelViewer(props: FenceProps) {
         </Suspense>
         <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI / 1.75} />
       </Canvas>
-      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-4 rounded-xl border border-gray-200 text-sm font-mono text-gray-800 shadow-lg">
-        <p className="font-bold">格柵數量: {props.count !== undefined ? props.count : Math.max(0, Math.floor(((props.totalLength - props.postSize * 2) + props.picketSpacing) / (props.picketWidth + props.picketSpacing)))} 支</p>
-        <p className="font-bold">總長度: {props.totalLength} mm</p>
+      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-4 rounded-xl border border-gray-200 text-xs font-bold text-gray-800 shadow-lg min-w-[160px]">
+        <div className="space-y-1.5">
+          <div className="flex justify-between gap-4">
+            <span className="opacity-50 uppercase tracking-wider">格柵數量</span>
+            <span className="font-mono">{props.count !== undefined ? props.count : Math.max(0, Math.floor(((props.totalLength - props.postSize * 2) + props.picketSpacing) / (props.picketWidth + props.picketSpacing)))} 支</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="opacity-50 uppercase tracking-wider">實際中心距</span>
+            <span className="font-mono">{(props.picketWidth + props.picketSpacing).toFixed(1)} mm</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="opacity-50 uppercase tracking-wider">單邊預留</span>
+            <span className="font-mono">{props.postSize.toFixed(1)} mm</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="opacity-50 uppercase tracking-wider">格柵寬度</span>
+            <span className="font-mono">{props.picketWidth} mm</span>
+          </div>
+        </div>
       </div>
     </div>
   );
